@@ -168,6 +168,26 @@
     state.trail.push({ time: new Date(), action });
   }
 
+  function themeVar(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("lxd-theme", theme);
+    } catch (error) {
+      /* file:// 下可能不可用，忽略 */
+    }
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#0b1411" : "#0d6048");
+    if (state.result) {
+      if (!views.workspace.hidden) drawGauge(state.result);
+      if (!views.report.hidden) drawRadar(state.result);
+    }
+  }
+
   function getValueByPath(object, path) {
     return path.replace(/\[(\d+)\]/g, ".$1").split(".").reduce((current, key) => (current === undefined || current === null ? undefined : current[key]), object);
   }
@@ -545,7 +565,7 @@
 
     context.lineCap = "round";
     context.lineWidth = lineWidth;
-    context.strokeStyle = "#eaf0ec";
+    context.strokeStyle = themeVar("--chart-track", "#eaf0ec");
     context.beginPath();
     context.arc(centerX, centerY, radius, start, Math.PI * 2);
     context.stroke();
@@ -565,7 +585,7 @@
     context.lineWidth = 2;
     [55, 70, 85].forEach((threshold) => {
       const angle = start + Math.PI * (threshold / 100);
-      context.strokeStyle = "#ffffff";
+      context.strokeStyle = themeVar("--paper", "#ffffff");
       context.beginPath();
       context.moveTo(centerX + Math.cos(angle) * (radius - lineWidth / 2 - 1), centerY + Math.sin(angle) * (radius - lineWidth / 2 - 1));
       context.lineTo(centerX + Math.cos(angle) * (radius + lineWidth / 2 + 1), centerY + Math.sin(angle) * (radius + lineWidth / 2 + 1));
@@ -574,11 +594,11 @@
 
     context.textAlign = "center";
     context.textBaseline = "alphabetic";
-    context.fillStyle = "#0e1b16";
+    context.fillStyle = themeVar("--ink", "#0e1b16");
     const numberSize = Math.round(Math.min(width * 0.17, 40));
     context.font = `800 ${numberSize}px "Inter", "Microsoft YaHei", sans-serif`;
     context.fillText(String(result.totalScore), centerX, centerY - 24);
-    context.fillStyle = "#84948c";
+    context.fillStyle = themeVar("--muted-2", "#84948c");
     context.font = `500 ${Math.round(Math.min(width * 0.052, 12))}px "Inter", "Microsoft YaHei", sans-serif`;
     context.fillText("总分 / 100", centerX, centerY + 2);
   }
@@ -826,7 +846,7 @@
 
     context.clearRect(0, 0, width, height);
     context.lineWidth = 1;
-    context.strokeStyle = "#e4ece7";
+    context.strokeStyle = themeVar("--chart-grid", "#e4ece7");
     [0.25, 0.5, 0.75, 1].forEach((level) => {
       context.beginPath();
       axes.forEach((_, index) => {
@@ -838,7 +858,7 @@
       context.stroke();
     });
 
-    context.strokeStyle = "#e9f0ec";
+    context.strokeStyle = themeVar("--chart-axis", "#e9f0ec");
     axes.forEach((_, index) => {
       const point = pointAt(index, 1);
       context.beginPath();
@@ -854,9 +874,9 @@
       else context.lineTo(point.x, point.y);
     });
     context.closePath();
-    context.fillStyle = "rgba(18, 160, 116, .16)";
+    context.fillStyle = themeVar("--chart-fill", "rgba(18, 160, 116, .16)");
     context.fill();
-    context.strokeStyle = "#0d8a66";
+    context.strokeStyle = themeVar("--chart-stroke", "#0d8a66");
     context.lineWidth = 2.2;
     context.lineJoin = "round";
     context.stroke();
@@ -865,10 +885,10 @@
       const dot = pointAt(index, axis.ratio);
       context.beginPath();
       context.arc(dot.x, dot.y, 3, 0, Math.PI * 2);
-      context.fillStyle = "#ffffff";
+      context.fillStyle = themeVar("--paper", "#ffffff");
       context.fill();
       context.lineWidth = 2;
-      context.strokeStyle = "#0d8a66";
+      context.strokeStyle = themeVar("--chart-stroke", "#0d8a66");
       context.stroke();
     });
 
@@ -877,10 +897,10 @@
     axes.forEach((axis, index) => {
       const label = pointAt(index, 1.2);
       const percent = pointAt(index, 1.2);
-      context.fillStyle = "#25332c";
+      context.fillStyle = themeVar("--ink", "#25332c");
       context.font = '700 12px "Inter", "Microsoft YaHei", sans-serif';
       context.fillText(axis.label, label.x, label.y - 7);
-      context.fillStyle = "#84948c";
+      context.fillStyle = themeVar("--muted-2", "#84948c");
       context.font = '500 10.5px "Inter", "Microsoft YaHei", sans-serif';
       context.fillText(`${fixed(axis.ratio * 100, 0)}%`, percent.x, percent.y + 8);
     });
@@ -907,16 +927,16 @@
 
     const grid = [0, 10, 20, 30, 40, 50].map((value) => {
       const y = yB(value);
-      return `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="#e9efec" stroke-dasharray="3 4"/>` +
-        `<text x="${L - 10}" y="${y + 4}" text-anchor="end" font-size="10.5" fill="#8a9a92">${value}</text>`;
+      return `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" style="stroke:var(--chart-grid)" stroke-dasharray="3 4"/>` +
+        `<text x="${L - 10}" y="${y + 4}" text-anchor="end" font-size="10.5" style="fill:var(--muted-2)">${value}</text>`;
     }).join("");
 
     const bars = rows.map((row, index) => {
       const cx = L + step * index + step / 2;
       const y = yB(row.balance);
       return `<rect x="${fixed(cx - barW / 2, 1)}" y="${fixed(y, 1)}" width="${barW}" height="${fixed(baseY - y, 1)}" rx="6" fill="${row.partial ? "#8fd6bc" : "url(#glBar)"}"/>` +
-        `<text x="${fixed(cx, 1)}" y="${fixed(y - 9, 1)}" text-anchor="middle" font-size="12" font-weight="700" fill="#0e1b16">${row.balance}</text>` +
-        `<text x="${fixed(cx, 1)}" y="${baseY + 23}" text-anchor="middle" font-size="11" fill="#6b7f76">${row.year}</text>`;
+        `<text x="${fixed(cx, 1)}" y="${fixed(y - 9, 1)}" text-anchor="middle" font-size="12" font-weight="700" style="fill:var(--ink)">${row.balance}</text>` +
+        `<text x="${fixed(cx, 1)}" y="${baseY + 23}" text-anchor="middle" font-size="11" style="fill:var(--muted)">${row.year}</text>`;
     }).join("");
 
     const points = rows.map((row, index) => `${fixed(L + step * index + step / 2, 1)},${fixed(yG(row.growth), 1)}`).join(" ");
@@ -938,9 +958,9 @@
       ${bars}
       <polyline points="${points}" fill="none" stroke="#c08a2e" stroke-width="2" stroke-linejoin="round"/>
       ${dots}
-      <line x1="${L}" y1="${baseY}" x2="${W - R}" y2="${baseY}" stroke="#cfdcd5"/>
-      <text x="${L}" y="20" font-size="10.5" fill="#8a9a92">余额（万亿元）</text>
-      <text x="${W - R}" y="20" text-anchor="end" font-size="10.5" fill="#8a9a92">同比增速（%）</text>
+      <line x1="${L}" y1="${baseY}" x2="${W - R}" y2="${baseY}" style="stroke:var(--chart-axis)"/>
+      <text x="${L}" y="20" font-size="10.5" style="fill:var(--muted-2)">余额（万亿元）</text>
+      <text x="${W - R}" y="20" text-anchor="end" font-size="10.5" style="fill:var(--muted-2)">同比增速（%）</text>
     </svg>`;
   }
 
@@ -972,8 +992,8 @@
       <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="2025 年环境资源一审案件结构" style="max-width:230px">
         <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#eef2ef" stroke-width="${stroke}"/>
         ${arcs}
-        <text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="26" font-weight="800" fill="#0e1b16">${total}</text>
-        <text x="${cx}" y="${cy + 17}" text-anchor="middle" font-size="10.5" fill="#6b7f76">万件 · ${justice.year}</text>
+        <text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="26" font-weight="800" style="fill:var(--ink)">${total}</text>
+        <text x="${cx}" y="${cy + 17}" text-anchor="middle" font-size="10.5" style="fill:var(--muted)">万件 · ${justice.year}</text>
       </svg>
       <div class="donut-legend">${legend}</div>
     </div>`;
@@ -1012,15 +1032,15 @@
       const y = T + index * rowH + 12;
       const width = Math.max(2, (row.score / 100) * barW);
       const vetoLabel = row.veto.triggered ? ` · ${row.veto.rules.map((rule) => rule.id).join("/")} 否决` : "";
-      return `<text x="0" y="${y + 14}" font-size="12" font-weight="700" fill="#25332c">${escapeHtml(row.name)}</text>
-        <rect x="${L}" y="${y + 4}" width="${barW}" height="12" rx="6" fill="#eef2ef"/>
+      return `<text x="0" y="${y + 14}" font-size="12" font-weight="700" style="fill:var(--ink-soft)">${escapeHtml(row.name)}</text>
+        <rect x="${L}" y="${y + 4}" width="${barW}" height="12" rx="6" style="fill:var(--chart-track)"/>
         <rect x="${L}" y="${y + 4}" width="${fixed(width, 1)}" height="12" rx="6" fill="${colorOf(row)}"/>
-        <text x="${L + barW + 10}" y="${y + 15}" font-size="12" font-weight="750" fill="#0e1b16">${row.score}</text>
-        <text x="${L + barW + 36}" y="${y + 15}" font-size="11" fill="#6b7f76">${escapeHtml(row.grade.label)}${escapeHtml(vetoLabel)}</text>`;
+        <text x="${L + barW + 10}" y="${y + 15}" font-size="12" font-weight="750" style="fill:var(--ink)">${row.score}</text>
+        <text x="${L + barW + 36}" y="${y + 15}" font-size="11" style="fill:var(--muted)">${escapeHtml(row.grade.label)}${escapeHtml(vetoLabel)}</text>`;
     }).join("");
 
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="四家演示企业的模型得分">
-      <line x1="${L}" y1="${T}" x2="${L}" y2="${H - 8}" stroke="#cfdcd5"/>
+      <line x1="${L}" y1="${T}" x2="${L}" y2="${H - 8}" style="stroke:var(--chart-axis)"/>
       ${bars}
     </svg>`;
   }
@@ -1342,6 +1362,14 @@
     if (state.result && !views.workspace.hidden) drawGauge(state.result);
     if (state.result && !views.report.hidden) drawRadar(state.result);
   });
+
+  const themeToggle = document.getElementById("theme-toggle");
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    });
+  }
+  applyTheme(document.documentElement.dataset.theme || "light");
 
   renderCases();
   setNavAvailability();
